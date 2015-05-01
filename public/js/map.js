@@ -1,4 +1,4 @@
-/*global google, BM, MapLabel, alert, navigator, GeolocationMarker*/
+/*global google, BM, MapLabel, alert, navigator, GeolocationMarker, MarkerClusterer*/
 
 (function () {
   "use strict";
@@ -9,9 +9,9 @@
     api: null,
     labels: [],
     arrows: [],
+    markers: [],
     refreshInterval: 5000,
     locationMarker: null,
-    url: 'locations',
     mapOptions: {
       zoom: 14,
       center: {}
@@ -57,9 +57,8 @@
 
     buildMap: function () {
       this.map  = new google.maps.Map(document.getElementById('map-canvas'), this.mapOptions);
-      google.maps.event.addListener(this.map, 'idle', _.bind(this.getViewport, this));
-      this.api = new BM.Api( this.url , _.bind(this.showBus, this));
-      this.api.fetch();
+      this.api = new BM.Api(this.map, _.bind(this.showBus, this));
+      google.maps.event.addListener(this.map, 'idle', _.bind(this.refresh, this));
     },
 
     clearAll: function () {
@@ -78,6 +77,7 @@
       var arrow, mapLabel, lineSymbol, arr, lineCoordinates;
 
       this.clearAll();
+
       // iterate through all the vehicles
       _.each(buses, function (bus) {
         // Display Bus route number
@@ -92,52 +92,51 @@
         });
 
         // Display bearing as a fancy arrow
-        lineSymbol = {
-          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW
-        };
+        // lineSymbol = {
+        //   path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW
+        // };
 
-        arr = this.getBearingCoor(bus[1], bus[2], bus[3]);
+        //arr = this.getBearingCoor(bus[1], bus[2], bus[3]);
 
-        lineCoordinates = [
-          new google.maps.LatLng(bus[1], bus[2]),
-          new google.maps.LatLng(arr[0], arr[1]),
-        ];
+        //lineCoordinates = [
+        //  new google.maps.LatLng(bus[1], bus[2]),
+        //  new google.maps.LatLng(arr[0], arr[1]),
+        //];
 
-        arrow = new google.maps.Polyline({
-          path: lineCoordinates,
-          icons: [{
-            icon: lineSymbol,
-            offset: '100%'
-          }],
-          map: this.map
+        //arrow = new google.maps.Polyline({
+        //  path: lineCoordinates,
+        //  icons: [{
+        //    icon: lineSymbol,
+        //    offset: '100%'
+        //  }],
+        //  map: this.map
+        //});
+
+        // this.arrows.push(arrow);
+
+        var latLng = new google.maps.LatLng(bus[1], bus[2]);
+        var marker = new google.maps.Marker({
+          position: latLng
         });
 
         this.labels.push(mapLabel);
-        this.arrows.push(arrow);
+        this.markers.push(marker);
 
       }, this);
 
-      _.delay(_.bind(this.refresh, this), this.refreshInterval);
+      // console.log(this.arrows);
+      var markerCluster = new MarkerClusterer(this.map, this.markers);
 
       // After next refresh, only show markers that are in the viewport
       // @todo Where should this listener go? works here..
-      google.maps.event.addListener(this.map, 'idle', _.bind(this.getViewport, this));
+      //google.maps.event.addListener(this.map, 'idle', _.bind(this.getViewport, this));
+
+      //_.delay(_.bind(this.refresh, this), this.refreshInterval);
     },
 
     // Get latest vehicle location data.
-    // Note: this.url is re-defined by this.getViewport()
     refresh: function () {
-      this.api = new BM.Api( this.url , _.bind(this.showBus, this));
       this.api.fetch();
-    },
-
-    // Set this.url with the viewport bounds
-    //
-    getViewport: function () {
-      this.url = 'locations?nelat=' + this.map.getBounds().getNorthEast().lat()
-                 + '&nelon=' + this.map.getBounds().getNorthEast().lng()
-                 + '&swlat=' + this.map.getBounds().getSouthWest().lat()
-                 + '&swlon=' + this.map.getBounds().getSouthWest().lng();
     },
 
     // determine direction - KISS: N, S, E or W
